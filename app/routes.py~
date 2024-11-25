@@ -1,0 +1,38 @@
+from flask import render_template, request, redirect, url_for, flash
+from flask_login import login_required, current_user
+from app import app, db, bcrypt
+from app.forms import UpdateProfileForm
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    form = UpdateProfileForm()
+
+    # Проверка на отправку формы
+    if form.validate_on_submit():
+        # Обновляем имя пользователя и email
+        current_user.username = form.username.data
+        current_user.email = form.email.data
+
+        # Проверяем, есть ли новый пароль, и обновляем его
+        if form.password.data:
+            hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+            current_user.password = hashed_password
+
+        # Сохраняем изменения в базе
+        db.session.commit()
+        flash('Ваш профиль был обновлён!', 'success')
+        return redirect(url_for('profile'))  # Перенаправляем пользователя обратно на страницу
+
+    else:
+        # Если метод POST и форма заполнена некорректно
+        if request.method == 'POST':
+            flash('Ошибка обновления профиля. Проверьте данные и попробуйте снова.', 'danger')
+
+    # Предзаполняем форму текущими данными пользователя при GET-запросе
+    if request.method == 'GET':
+        form.username.data = current_user.username
+        form.email.data = current_user.email
+
+    # Отображаем шаблон с формой
+    return render_template('profile.html', title='Редактировать профиль', form=form)
